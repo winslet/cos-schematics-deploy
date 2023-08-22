@@ -11,23 +11,6 @@ module "resource_group" {
 }
 
 ##############################################################################
-# VPC
-##############################################################################
-resource "ibm_is_vpc" "example_vpc" {
-  name           = "${var.prefix}-vpc"
-  resource_group = module.resource_group.resource_group_id
-  tags           = var.resource_tags
-}
-
-resource "ibm_is_subnet" "testacc_subnet" {
-  name                     = "${var.prefix}-subnet"
-  vpc                      = ibm_is_vpc.example_vpc.id
-  zone                     = "${var.region}-1"
-  total_ipv4_address_count = 256
-  resource_group           = module.resource_group.resource_group_id
-}
-
-##############################################################################
 # Observability Instances (Sysdig + AT)
 ##############################################################################
 
@@ -36,7 +19,6 @@ locals {
   at_crn      = var.existing_at_instance_crn == null ? module.observability_instances.activity_tracker_crn : var.existing_at_instance_crn
 }
 
-# Create Sysdig and Activity Tracker instance
 module "observability_instances" {
   source  = "terraform-ibm-modules/observability-instances/ibm"
   version = "2.7.0"
@@ -89,25 +71,12 @@ data "ibm_iam_account_settings" "iam_account_settings" {
 }
 
 ##############################################################################
-# Create CBR Zone
-##############################################################################
-module "cbr_zone" {
-  source           = "terraform-ibm-modules/cbr/ibm//cbr-zone-module"
-  version          = "1.2.0"
-  name             = "${var.prefix}-VPC-network-zone"
-  zone_description = "CBR Network zone containing VPC"
-  account_id       = data.ibm_iam_account_settings.iam_account_settings.account_id
-  addresses = [{
-    type  = "vpc", # to bind a specific vpc to the zone
-    value = ibm_is_vpc.example_vpc.crn,
-  }]
-}
-
-# Create COS instance and Key Protect instance.
-# Create COS bucket-1 with:
+# Create COS Instance and Bucket with:
 # - Encryption
 # - Monitoring
 # - Activity Tracking
+##############################################################################
+
 module "cos_bucket1" {
   source                              = "terraform-ibm-modules/cos/ibm"
   version                             = "6.10.1"
@@ -125,47 +94,4 @@ module "cos_bucket1" {
   # disable retention for test environments - enable for stage/prod
   retention_enabled    = false
   activity_tracker_crn = local.at_crn
-  bucket_cbr_rules = [
-    {
-      description      = "sample rule for bucket 1"
-      enforcement_mode = "report"
-      account_id       = data.ibm_iam_account_settings.iam_account_settings.account_id
-      rule_contexts = [{
-        attributes = [
-          {
-            "name" : "endpointType",
-            "value" : "private"
-          },
-          {
-            name  = "networkZoneId"
-            value = module.cbr_zone.zone_id
-        }]
-      }]
-    }
-  ]
-  instance_cbr_rules = [
-    {
-      description      = "sample rule for the instance"
-      enforcement_mode = "report"
-      account_id       = data.ibm_iam_account_settings.iam_account_settings.account_id
-      # IAM tags on the rule resources should match to the instance level IAM tags
-      tags = [
-        {
-          name  = "env"
-          value = "test"
-        }
-      ]
-      rule_contexts = [{
-        attributes = [
-          {
-            "name" : "endpointType",
-            "value" : "private"
-          },
-          {
-            name  = "networkZoneId"
-            value = module.cbr_zone.zone_id
-        }]
-      }]
-    }
-  ]
 }

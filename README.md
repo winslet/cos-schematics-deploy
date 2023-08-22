@@ -1,4 +1,4 @@
-# Complete Example (multiple COS Buckets with retention, encryption, tracking and monitoring enabled)
+# Example of a Basic COS deployment w/ KP & AT
 
 This example creates the following infrastructure:
 - A new resource group, if one is not passed in.
@@ -10,10 +10,3 @@ This example creates the following infrastructure:
   - Encryption
   - Monitoring
   - Activity Tracking
-- COS bucket-2 with:
-  - Cross Region Location
-  - Encryption
-  - Monitoring
-  - Activity Tracking
-- A sample VPC.
-- A Context Based Restriction(CBR) to only allow buckets to be accessible from the VPC.
